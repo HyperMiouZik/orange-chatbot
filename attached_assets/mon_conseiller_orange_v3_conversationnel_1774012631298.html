@@ -1,0 +1,383 @@
+
+<style>
+#app{max-width:420px;margin:0 auto;padding:1rem 0}
+.frame{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-xl);overflow:hidden;background:var(--color-background-primary)}
+.hdr{background:#FF7900;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.hdr svg{min-width:18px}
+.hdr-t{font-size:15px;font-weight:500;color:#fff;flex:1}
+#stepTag{font-size:11px;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:10px}
+#ct{padding:16px;min-height:460px}
+.bbl{display:flex;gap:8px;margin-bottom:14px}
+.bbl-ai{flex-direction:row}
+.bbl-usr{flex-direction:row-reverse}
+.av{min-width:28px;width:28px;height:28px;border-radius:50%;background:#FF7900;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.msg{max-width:82%;padding:10px 14px;border-radius:14px;font-size:13.5px;line-height:1.5;color:var(--color-text-primary)}
+.msg-ai{background:var(--color-background-secondary);border-bottom-left-radius:4px}
+.msg-usr{background:#FF7900;color:#fff;border-bottom-right-radius:4px}
+.qr{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.qr button{padding:8px 14px;border-radius:18px;font-size:12.5px;cursor:pointer;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500;transition:border-color 0.15s}
+.qr button:hover{border-color:#FF7900;color:#FF7900}
+.inp-row{display:flex;gap:8px;margin-bottom:12px}
+.inp-row input{flex:1;padding:9px 14px;border-radius:20px;border:0.5px solid var(--color-border-secondary);font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);outline:none}
+.inp-row input:focus{border-color:#FF7900}
+.inp-row button{width:36px;height:36px;border-radius:50%;border:none;background:#FF7900;color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:10px}
+.tag-pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.abtn{padding:9px 16px;border-radius:20px;font-size:13px;cursor:pointer;font-weight:500;margin:3px 4px 3px 0}
+.abtn-p{border:none;background:#FF7900;color:#fff}
+.abtn-s{border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)}
+.usage-btn{padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);color:var(--color-text-primary);transition:all 0.15s}
+.usage-btn.sel{background:#FFF0E0;border-color:#FF7900;color:#E65100}
+.added-list{margin-top:14px;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
+.added-list p{margin:0;font-size:11px;color:var(--color-text-tertiary);font-weight:500;margin-bottom:4px}
+.added-list div{font-size:12px;color:var(--color-text-secondary);padding:2px 0}
+</style>
+
+<div id="app">
+  <div class="frame">
+    <div class="hdr">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="hdr-t">Mon conseiller Orange</span>
+      <span id="stepTag"></span>
+    </div>
+    <div id="ct"></div>
+  </div>
+  <p style="text-align:center;font-size:12px;color:var(--color-text-tertiary);margin-top:10px">Prototype v3 — conversationnel + simulateur familial</p>
+</div>
+
+<script>
+const S = {step:0, besoin:null, membres:[], currentMembre:null, operateurActuel:null, prixActuel:null, reco:null, showAlt:false, chatLog:[]};
+
+const usages = [
+  {id:'streaming', label:'Streaming', desc:'Netflix, YouTube...'},
+  {id:'gaming', label:'Gaming', desc:'Jeux en ligne'},
+  {id:'teletravail', label:'Visio / travail', desc:'Teams, Zoom...'},
+  {id:'basique', label:'Basique', desc:'Mails, r\u00e9seaux sociaux'}
+];
+
+const besoins = [
+  {id:'nouveau', label:'Prendre un nouveau forfait', response:'Un nouveau forfait, c\u2019est not\u00e9\u00a0! Fibre, mobile, ou les deux\u00a0? On va voir \u00e7a ensemble.'},
+  {id:'changer', label:'Changer d\u2019op\u00e9rateur', response:'Vous en avez assez de votre op\u00e9rateur actuel\u00a0? On va trouver mieux pour vous, promis.'},
+  {id:'regrouper', label:'Regrouper box + mobiles', response:'Tout regrouper au m\u00eame endroit, bonne id\u00e9e\u00a0! On va optimiser \u00e7a pour tout le foyer.'},
+  {id:'demenager', label:'Je d\u00e9m\u00e9nage bient\u00f4t', response:'Un d\u00e9m\u00e9nagement, c\u2019est le moment id\u00e9al pour repenser son offre. On s\u2019en occupe\u00a0!'}
+];
+
+function tag(t){ document.getElementById('stepTag').textContent = t; }
+
+function bAI(html){ return `<div class="bbl bbl-ai"><div class="av"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="msg msg-ai">${html}</div></div>`; }
+function bUsr(html){ return `<div class="bbl bbl-usr"><div class="msg msg-usr">${html}</div></div>`; }
+
+function render(){
+  const c = document.getElementById('ct');
+
+  // === STEP 0: GREETING ===
+  if(S.step === 0){
+    tag('');
+    c.innerHTML = bAI('Bonjour\u00a0! Je suis votre conseiller Orange. Je suis l\u00e0 pour vous aider \u00e0 trouver l\u2019offre qui vous correspond vraiment \u2014 pas un catalogue, un vrai conseil. \u{1F44B}') +
+    bAI('Qu\u2019est-ce qui vous am\u00e8ne aujourd\u2019hui\u00a0?') +
+    `<div class="qr">${besoins.map(b => `<button onclick="pickBesoin('${b.id}')">${b.label}</button>`).join('')}</div>
+    <div class="inp-row">
+      <input type="text" id="freeInput" placeholder="Ou d\u00e9crivez votre besoin..." onkeydown="if(event.key==='Enter')sendFree()">
+      <button onclick="sendFree()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>`;
+    return;
+  }
+
+  // === STEP 0.5: BOT RESPONDS TO BESOIN ===
+  if(S.step === 0.5){
+    tag('');
+    const b = besoins.find(x => x.id === S.besoin);
+    const resp = b ? b.response : 'Parfait, je comprends\u00a0! On va trouver la meilleure offre pour vous.';
+    c.innerHTML = S.chatLog.join('') +
+    bAI(resp) +
+    bAI('Pour vous faire la meilleure recommandation, j\u2019ai besoin de conna\u00eetre un peu votre foyer. On y va\u00a0? \u00c7a prend 2 minutes.') +
+    `<div class="qr">
+      <button onclick="S.step=1;S.currentMembre={nom:'',usages:[]};render()" style="background:#FF7900;color:#fff;border-color:#FF7900">C\u2019est parti \u2192</button>
+    </div>`;
+    return;
+  }
+
+  // === STEP 1: ADD MEMBERS ===
+  if(S.step === 1){
+    const num = S.membres.length + 1;
+    tag('Membre ' + num);
+    let intro = '';
+    if(S.membres.length === 0){
+      intro = bAI('Commen\u00e7ons par les personnes qui vivent chez vous. Qui est le premier membre du foyer\u00a0?');
+    } else {
+      intro = bAI(`${S.membres[S.membres.length-1].nom}, c\u2019est not\u00e9\u00a0! Quelqu\u2019un d\u2019autre \u00e0 la maison\u00a0?`);
+    }
+    c.innerHTML = intro + `
+      <div class="card">
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 8px;font-weight:500">Membre ${num}</p>
+        <input type="text" id="nom" placeholder="Pr\u00e9nom ou surnom (Maman, Mathis...)" style="width:100%;box-sizing:border-box;margin-bottom:12px;font-size:13px;padding:9px 12px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);color:var(--color-text-primary)">
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 8px">Ses usages principaux :</p>
+        <div id="usagePicks" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="abtn abtn-p" onclick="addMembre()">Ajouter</button>
+        ${S.membres.length >= 2 ? '<button class="abtn abtn-s" onclick="finishMembres()">Tout le monde est l\u00e0 \u2192</button>' : ''}
+      </div>
+      ${S.membres.length > 0 ? `<div class="added-list"><p>D\u00e9j\u00e0 ajout\u00e9s :</p>${S.membres.map(m => `<div>${m.nom} \u2014 ${m.usages.map(u=>usages.find(x=>x.id===u).label).join(', ')}</div>`).join('')}</div>` : ''}`;
+    const picks = document.getElementById('usagePicks');
+    S.currentMembre = {nom:'', usages:[]};
+    usages.forEach(u => {
+      const b = document.createElement('button');
+      b.className = 'usage-btn';
+      b.textContent = u.label;
+      let sel = false;
+      b.onclick = () => {
+        sel = !sel;
+        if(sel){ S.currentMembre.usages.push(u.id); b.classList.add('sel'); }
+        else { S.currentMembre.usages = S.currentMembre.usages.filter(x=>x!==u.id); b.classList.remove('sel'); }
+      };
+      picks.appendChild(b);
+    });
+    return;
+  }
+
+  // === STEP 2: CURRENT OPERATOR ===
+  if(S.step === 2){
+    tag('Situation actuelle');
+    const noms = S.membres.map(m=>m.nom).join(', ');
+    c.innerHTML = bAI(`Super, j\u2019ai bien ${S.membres.length} personne${S.membres.length>1?'s':''} : ${noms}. Derni\u00e8re \u00e9tape avant votre recommandation\u00a0!`) +
+    bAI('Vous \u00eates chez quel op\u00e9rateur actuellement, et vous payez combien \u00e0 peu pr\u00e8s par mois au total (box + tous les mobiles)\u00a0?') + `
+      <div class="card">
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 8px;font-weight:500">Op\u00e9rateur box actuel</p>
+        <div id="opPicks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 8px;font-weight:500">Budget mensuel actuel</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="prixSlider" min="20" max="150" value="70" step="5" style="flex:1">
+          <span id="prixVal" style="font-size:15px;font-weight:500;min-width:50px;color:var(--color-text-primary)">70\u20ac</span>
+        </div>
+      </div>
+      <div><button class="abtn abtn-p" onclick="submitOp()">Voir ma recommandation \u2192</button></div>`;
+    const sl = document.getElementById('prixSlider');
+    const pv = document.getElementById('prixVal');
+    sl.oninput = () => { pv.textContent = sl.value + '\u20ac'; };
+    const opP = document.getElementById('opPicks');
+    ['SFR','Free','Bouygues','Sosh','Autre'].forEach(op => {
+      const b = document.createElement('button');
+      b.className = 'usage-btn';
+      b.textContent = op;
+      b.onclick = () => {
+        opP.querySelectorAll('button').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
+        S.operateurActuel = op;
+      };
+      opP.appendChild(b);
+    });
+    return;
+  }
+
+  // === STEP 3: RECOMMENDATION ===
+  if(S.step === 3){
+    tag('Recommandation');
+    const r = S.reco.main;
+    const a = S.reco.alt;
+    const prixActuel = S.prixActuel;
+    const diff = prixActuel - r.moy;
+    const diffSign = diff > 0 ? '\u00e9conomie' : 'suppl\u00e9ment';
+    const diffAbs = Math.abs(diff);
+
+    const membresDetail = S.membres.map(m => `${m.nom} (${m.usages.map(u=>usages.find(x=>x.id===u).label).join(', ')})`).join(', ');
+
+    c.innerHTML = bAI(`J\u2019ai analys\u00e9 votre foyer : ${membresDetail}. Voici ce que je vous recommande\u00a0!`) + `
+
+      <div style="border:2px solid #FF7900;border-radius:var(--border-radius-lg);padding:14px;margin-bottom:12px;background:var(--color-background-primary)">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+          <div>
+            <span class="tag-pill" style="background:#FF7900;color:#fff">Recommand\u00e9 pour vous</span>
+            <h3 style="font-size:16px;font-weight:500;margin:8px 0 2px;color:var(--color-text-primary)">${r.name}</h3>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:0">${r.desc}</p>
+          </div>
+          <div style="text-align:right;min-width:75px">
+            <span style="font-size:20px;font-weight:500;color:#FF7900">${r.promo}\u20ac</span><br>
+            <span style="font-size:11px;color:var(--color-text-tertiary)">puis ${r.full}\u20ac/mois</span>
+          </div>
+        </div>
+        ${r.inclus.map(i => `<div style="font-size:12px;color:var(--color-text-secondary);padding:2px 0">\u2713 ${i}</div>`).join('')}
+      </div>
+
+      <div style="background:#FFF8F0;border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:12px">
+        <p style="font-size:12px;font-weight:500;color:#E65100;margin:0 0 6px">Pourquoi cette offre pour votre foyer\u00a0?</p>
+        ${r.why.map(w => `<p style="font-size:12px;color:#BF360C;margin:0;padding:2px 0;line-height:1.4">\u2192 ${w}</p>`).join('')}
+      </div>
+
+      <div class="card">
+        <p style="font-size:12px;font-weight:500;color:var(--color-text-primary);margin:0 0 8px">Comparaison avec votre situation actuelle</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1;padding:8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);text-align:center">
+            <p style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">${S.operateurActuel} (actuel)</p>
+            <p style="font-size:18px;font-weight:500;margin:0;color:var(--color-text-primary)">${prixActuel}\u20ac<span style="font-size:11px;color:var(--color-text-tertiary)">/mois</span></p>
+          </div>
+          <div style="flex:1;padding:8px;border-radius:var(--border-radius-md);border:0.5px solid #FF7900;text-align:center;background:#FFF8F0">
+            <p style="font-size:11px;color:#E65100;margin:0 0 4px">Orange (moy. 12 mois)</p>
+            <p style="font-size:18px;font-weight:500;margin:0;color:#FF7900">${r.moy}\u20ac<span style="font-size:11px;color:#E65100">/mois</span></p>
+          </div>
+        </div>
+        <div style="text-align:center;padding:6px;border-radius:var(--border-radius-md);background:${diff>0?'#E8F5E9':'#FFF3E0'}">
+          <span style="font-size:13px;font-weight:500;color:${diff>0?'#2E7D32':'#E65100'}">${diff>0?'\u2193':'\u2191'} ${diffAbs}\u20ac/mois d'${diffSign} ${diff>0?`(${Math.round(diffAbs*12)}\u20ac/an)`:''}</span>
+        </div>
+      </div>
+
+      <div style="background:#E8F5E9;border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:start">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2.5" stroke-linecap="round" style="min-width:16px;margin-top:1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <p style="font-size:12px;color:#1B5E20;margin:0;line-height:1.4"><strong>Garantie 30 jours satisfait.</strong> Si l\u2019offre ne vous convient pas, basculez vers une autre sans frais pendant le premier mois.</p>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        <button class="abtn abtn-p" onclick="S.step=5;render()">Souscrire cette offre</button>
+        <button class="abtn abtn-s" onclick="S.step=4;render()">Voir l\u2019option moins ch\u00e8re</button>
+      </div>
+      <div><button class="abtn abtn-s" onclick="resetAll()">Recommencer</button></div>`;
+    return;
+  }
+
+  // === STEP 4: ALTERNATIVE ===
+  if(S.step === 4){
+    tag('Alternative');
+    const r = S.reco.main;
+    const a = S.reco.alt;
+    c.innerHTML = bAI('Vous voulez voir moins cher\u00a0? Bien s\u00fbr, je vous montre le compromis en toute transparence\u00a0:') + `
+
+      <div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px;margin-bottom:12px;background:var(--color-background-primary)">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+          <div>
+            <span class="tag-pill" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">Alternative</span>
+            <h3 style="font-size:16px;font-weight:500;margin:8px 0 2px;color:var(--color-text-primary)">${a.name}</h3>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:0">${a.desc}</p>
+          </div>
+          <div style="text-align:right;min-width:75px">
+            <span style="font-size:20px;font-weight:500;color:var(--color-text-primary)">${a.promo}\u20ac</span><br>
+            <span style="font-size:11px;color:var(--color-text-tertiary)">puis ${a.full}\u20ac/mois</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#FFF3E0;border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:12px">
+        <p style="font-size:12px;font-weight:500;color:#E65100;margin:0 0 6px">Ce que vous gagnez et ce que vous perdez</p>
+        <p style="font-size:12px;color:#BF360C;margin:0 0 8px;line-height:1.4">\u2193 <strong>\u00c9conomie :</strong> ${Math.round(r.moy - a.moyApprox)}\u20ac/mois en moyenne (${Math.round((r.moy - a.moyApprox)*12)}\u20ac/an)</p>
+        <p style="font-size:12px;color:#BF360C;margin:0;line-height:1.4">\u2191 <strong>Compromis :</strong> ${a.compromise}</p>
+      </div>` +
+
+    bAI(`Pour \u00eatre honn\u00eate avec vous\u00a0: si votre priorit\u00e9 c\u2019est le budget et que ${S.membres.some(m=>m.usages.includes('gaming'))?'personne ne joue en comp\u00e9titif':'vos usages restent mod\u00e9r\u00e9s'}, l\u2019alternative peut suffire. Mais si ${S.membres.some(m=>m.usages.includes('gaming'))?'le gaming sans lag est important':'toute la famille est connect\u00e9e le soir en m\u00eame temps'}, la recommandation initiale vaut les ${Math.round(r.moy - a.moyApprox)}\u20ac de plus par mois. \u00c0 vous de voir\u00a0!`) + `
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button class="abtn abtn-s" onclick="S.step=5;render()">Prendre l\u2019alternative</button>
+        <button class="abtn abtn-p" onclick="S.step=3;render()">Revenir \u00e0 la reco initiale</button>
+      </div>`;
+    return;
+  }
+
+  // === STEP 5: END ===
+  if(S.step === 5){
+    tag('');
+    c.innerHTML = bAI('Excellent choix\u00a0! En production, vous seriez redirig\u00e9 vers le tunnel de souscription Orange avec votre offre pr\u00e9-remplie et vos lignes mobiles d\u00e9j\u00e0 configur\u00e9es.') +
+    bAI('Merci d\u2019avoir test\u00e9 Mon Conseiller Orange. J\u2019esp\u00e8re que \u00e7a vous a sembl\u00e9 plus simple qu\u2019un catalogue\u00a0! \u{1F60A}') + `
+      <div style="text-align:center;padding:16px 0">
+        <div style="background:#E8F5E9;border-radius:var(--border-radius-md);padding:12px 14px;margin-bottom:16px;display:inline-block">
+          <span style="font-size:13px;color:#1B5E20;font-weight:500">Garantie 30 jours \u2014 sans risque</span>
+        </div>
+        <br>
+        <button class="abtn abtn-p" onclick="resetAll()">Recommencer la d\u00e9mo</button>
+      </div>
+      <p style="font-size:11px;color:var(--color-text-tertiary);text-align:center;margin:8px 0 0">Prototype — projet design thinking IMT Business School</p>`;
+  }
+}
+
+function pickBesoin(id){
+  const b = besoins.find(x => x.id === id);
+  S.besoin = id;
+  S.chatLog = [bUsr(b.label)];
+  S.step = 0.5;
+  render();
+}
+
+function sendFree(){
+  const input = document.getElementById('freeInput');
+  const txt = input.value.trim();
+  if(!txt) return;
+  const lower = txt.toLowerCase();
+  if(lower.includes('d\u00e9m\u00e9nag') || lower.includes('demenag') || lower.includes('nouvelle adresse') || lower.includes('emmenag')) S.besoin = 'demenager';
+  else if(lower.includes('regroup') || lower.includes('pack') || lower.includes('tout chez') || lower.includes('convergent') || lower.includes('box et mobile') || lower.includes('box + mobile')) S.besoin = 'regrouper';
+  else if(lower.includes('changer') || lower.includes('quitter') || lower.includes('marre') || lower.includes('ras le bol') || lower.includes('switch')) S.besoin = 'changer';
+  else S.besoin = 'nouveau';
+  S.chatLog = [bUsr(txt)];
+  S.step = 0.5;
+  render();
+}
+
+function addMembre(){
+  const nom = document.getElementById('nom').value.trim() || ('Membre ' + (S.membres.length+1));
+  if(S.currentMembre.usages.length === 0) S.currentMembre.usages = ['basique'];
+  S.membres.push({nom, usages: S.currentMembre.usages});
+  S.currentMembre = {nom:'', usages:[]};
+  S.step = 1;
+  render();
+}
+
+function finishMembres(){ S.step = 2; render(); }
+
+function submitOp(){
+  if(!S.operateurActuel) S.operateurActuel = 'Votre op\u00e9rateur';
+  S.prixActuel = parseInt(document.getElementById('prixSlider').value);
+  calcReco();
+  S.step = 3;
+  render();
+}
+
+function calcReco(){
+  const n = S.membres.length;
+  const allUsages = S.membres.flatMap(m => m.usages);
+  const hasGaming = allUsages.includes('gaming');
+  const hasTeletravail = allUsages.includes('teletravail');
+  const heavy = hasGaming || hasTeletravail;
+  let main, alt;
+  if(heavy && n >= 3){
+    main = {name:'Livebox Max + Pack Open', promo:54.99, full:72.99, desc:'Fibre 5 Gbit/s sym. + Wi-Fi 6E + r\u00e9p\u00e9teur', why:[
+      `D\u00e9bit sym\u00e9trique pour ${hasGaming?'le gaming':'la visio'} sans lag, m\u00eame \u00e0 ${n} simultan\u00e9s`,
+      `Wi-Fi 6E + r\u00e9p\u00e9teur : couverture optimale pour ${n} personnes`,
+      'Remise Open : -12\u20ac/mois par ligne mobile ajout\u00e9e'
+    ], inclus:['Fibre 5 Gbit/s \u2193\u2191','R\u00e9p\u00e9teur Wi-Fi 6E','TV 4K (d\u00e9sactivable)','Appels illim.']};
+    alt = {name:'Livebox Up + Pack Open', promo:44.99, full:62.99, desc:'Fibre 2 Gbit/s + Wi-Fi 6 + r\u00e9p\u00e9teur', compromise:
+      `D\u00e9bit 2 Gbit/s au lieu de 5 \u2014 suffisant pour le streaming, mais ${hasGaming?'latence un peu plus haute en gaming comp\u00e9titif':'visio peut saturer si tout le foyer streame en m\u00eame temps'}.`};
+  } else if(heavy){
+    main = {name:'Livebox Max', promo:34.99, full:54.99, desc:'Fibre 5 Gbit/s sym. + Wi-Fi 6E', why:[
+      `D\u00e9bit sym\u00e9trique optimal pour ${hasGaming?'le gaming':'le t\u00e9l\u00e9travail'}`,
+      'Latence r\u00e9duite vs Livebox standard',
+      'Meilleur rapport perf/prix pour usage intensif solo'
+    ], inclus:['Fibre 5 Gbit/s \u2193\u2191','Wi-Fi 6E','Appels illim.']};
+    alt = {name:'Livebox', promo:24.99, full:42.99, desc:'Fibre 500 Mbit/s + Wi-Fi 5', compromise:
+      `500 Mbit/s couvre la navigation et le streaming classique, mais ${hasGaming?'la latence gaming sera sensiblement plus \u00e9lev\u00e9e.':'la visio peut devenir instable si vous t\u00e9l\u00e9chargez en m\u00eame temps.'}`};
+  } else if(n >= 3){
+    main = {name:'Livebox Up + Pack Open', promo:44.99, full:62.99, desc:'Fibre 2 Gbit/s + Wi-Fi 6 + r\u00e9p\u00e9teur', why:[
+      `2 Gbit/s partag\u00e9s entre ${n} personnes = confortable`,
+      'R\u00e9p\u00e9teur Wi-Fi inclus pour couvrir toute la maison',
+      'Remise Open : -12\u20ac/mois par ligne mobile'
+    ], inclus:['Fibre 2 Gbit/s','R\u00e9p\u00e9teur Wi-Fi 6','160 cha\u00eenes TV','Appels illim.']};
+    alt = {name:'Livebox + Pack Open', promo:34.99, full:52.99, desc:'Fibre 500 Mbit/s + Wi-Fi 5', compromise:
+      `500 Mbit/s pour ${n} personnes, \u00e7a peut saturer aux heures de pointe. Pas de r\u00e9p\u00e9teur Wi-Fi inclus non plus.`};
+  } else {
+    main = {name:'Livebox', promo:24.99, full:42.99, desc:'Fibre 500 Mbit/s + Wi-Fi 5', why:[
+      'Suffisant pour votre usage quotidien',
+      'Le meilleur prix, sans options superflues',
+      'Pas de surco\u00fbt pour du d\u00e9bit que vous n\u2019utiliserez pas'
+    ], inclus:['Fibre 500 Mbit/s','Wi-Fi 5','Appels illim. fixes','TV en option (+5\u20ac)']};
+    alt = {name:'Livebox Max', promo:34.99, full:54.99, desc:'Fibre 5 Gbit/s + Wi-Fi 6E', compromise:
+      'Plus de d\u00e9bit, mais pour de la navigation et du streaming standard, vous ne verrez pas la diff\u00e9rence. +10\u20ac/mois en promo.'};
+  }
+  main.cout12 = Math.round(main.promo*6 + main.full*6);
+  main.moy = Math.round(main.cout12/12);
+  alt.cout12Approx = Math.round(alt.promo*6 + alt.full*6);
+  alt.moyApprox = Math.round(alt.cout12Approx/12);
+  S.reco = {main, alt};
+}
+
+function resetAll(){
+  S.step=0; S.besoin=null; S.membres=[]; S.currentMembre=null; S.operateurActuel=null; S.prixActuel=null; S.reco=null; S.showAlt=false; S.chatLog=[];
+  render();
+}
+
+render();
+</script>
