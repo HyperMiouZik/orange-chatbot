@@ -1,0 +1,10 @@
+packages:
+  "framer-motion": "Smooth page transitions for the wizard steps"
+  "clsx": "Utility for conditionally joining class names"
+  "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
+
+images: []
+
+notes:
+  - "The app is entirely frontend as requested, no backend/API integration required."
+  - "State management is handled via a top-level React hook."
